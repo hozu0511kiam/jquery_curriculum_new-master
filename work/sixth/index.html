@@ -1,21 +1,126 @@
 <!DOCTYPE html>
 <html lang="ja">
-<head>
-  <meta charset="UTF-8">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="../../common/css/reset.css">
-  <link rel="stylesheet" href="../../common/css/base.css">
-  <link rel="stylesheet" href="./css/style.css">
-  <title>Document</title>
-</head>
-<body>
-  <div class="wrapper" id="wrapper">
-    <button type="button" class="btn search-btn" id="pokemon_search">ポケモンを探す</button>
-  </div>
-  <script src="../../common/js/jquery.js"></script>
-  <script>
-    // 回答はここに書いてね
-  </script>
-</body>
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="../../common/css/reset.css">
+    <link rel="stylesheet" href="../../common/css/base.css">
+    <link rel="stylesheet" href="./css/style.css">
+    <title>Document</title>
+  </head>
+  <body>
+    <div class="wrapper" id="wrapper">
+      <button type="button" class="btn search-btn" id="pokemon_search">
+        ポケモンを探す
+      </button>
+    </div>
+    <script src="../../common/js/jquery.js"></script>
+    <script>
+      const API_POKEMON = "https://pokeapi.co/api/v2/pokemon/";
+      const API_SPECIES = "https://pokeapi.co/api/v2/pokemon-species/";
+      const ITEM_POKEBALL = "https://pokeapi.co/api/v2/item/4";
+
+      const initialBtnHtml =
+        '<button type="button" class="btn search-btn" id="pokemon_search">ポケモンを探す</button>';
+
+      let failHtml = `
+        <p class="text">逃げられてしまった...</p>
+        <button class="btn mt" data-js="reset">戻る</button>
+      `;
+      let encountHtml = `
+        <p class="name"></p>
+        <div><img class="img" src="" alt=""></div>
+        <div>
+          <button class="btn" id="catch">捕まえる</button>
+          <button class="btn" data-js="reset">逃げる</button>
+        </div>
+      `;
+      let doneHtml = `
+        <p class="name">ゲットしました</p>
+        <div><img class="img" src="" alt=""></div>
+        <button class="btn" data-js="reset">戻る</button>
+      `;
+
+      $(function () {
+        const $wrapper = $("#wrapper");
+        let pokeballImg = null;
+        let currentNameJP = "";
+        let currentImg = "";
+
+        function render(html) {
+          $wrapper.html(html);
+        }
+        function randomKantoId() {
+          return Math.floor(Math.random() * 151) + 1;
+        }
+
+        // 起動時にモンスターボール画像取得
+        $.ajax({
+          url: ITEM_POKEBALL,
+          type: "GET",
+          dataType: "json",
+          success: function (res) {
+            pokeballImg = res.sprites ? res.sprites.default : null;
+          },
+        });
+
+        // ① 検索 → ② エンカウント
+        $(document).on("click", "#pokemon_search", function () {
+          const id = randomKantoId();
+
+          // まずポケモン基本情報（画像用）
+          $.ajax({
+            url: API_POKEMON + id,
+            type: "GET",
+            dataType: "json",
+            success: function (pokeRes) {
+              currentImg = pokeRes.sprites.front_default || "";
+
+              // 次に日本語名（species）
+              $.ajax({
+                url: API_SPECIES + id,
+                type: "GET",
+                dataType: "json",
+                success: function (speciesRes) {
+                  const jpNameObj = speciesRes.names.find(
+                    (n) => n.language.name === "ja-Hrkt"
+                  );
+                  currentNameJP = jpNameObj ? jpNameObj.name : pokeRes.name;
+
+                  // エンカウント画面に反映
+                  render(encountHtml);
+                  $(".name").text(currentNameJP);
+                  $(".img").attr("src", currentImg);
+                },
+                error: function () {
+                  render(failHtml);
+                },
+              });
+            },
+            error: function () {
+              render(failHtml);
+            },
+          });
+        });
+
+        // ③ 捕まえる（50%）
+        $(document).on("click", "#catch", function () {
+          const isSuccess = Math.random() < 0.5;
+          if (isSuccess) {
+            render(doneHtml);
+            $(".name").text(currentNameJP + " をゲットしました！");
+            $(".img").attr("src", pokeballImg || currentImg);
+          } else {
+            render(failHtml);
+          }
+        });
+
+        // ④ 戻る/逃げる
+        $(document).on("click", "[data-js='reset']", function () {
+          render(initialBtnHtml);
+        });
+      });
+    </script>
+  </body>
 </html>
